@@ -1,0 +1,93 @@
+---
+title: "MachineLearning_Project"
+author: "Alberto Campillo"
+date: "Thursday, December 24, 2015"
+output: html_document
+---
+
+## Summary
+
+In this report I'll build a machine-learning model that will try to predict how well a group of people performs barbell lifts correctly and incorrectly in 5 different ways.
+
+## Analysis
+### Data load and cleaning
+
+I'll first read in the data provided in the assignment. As of the 160 variables, there are many of them with a lot of missing data, I'll get rid of them as I won't be using them as predictors.
+
+
+```{r reading and libraries, cache=TRUE}
+library(caret)
+library(randomForest)
+training <- read.csv("./pml-training.csv", na.strings=c("NA", "#DIV/0!", ""))
+testing <- read.csv("./pml-testing.csv", na.strings=c("NA", "#DIV/0!", ""))
+# Let's look for the variables with complete information
+a <- apply(training, 2, function(x) {sum(is.na(x))/length(x)})
+predictors <- names(a[a==0])
+# And now I'll subset the data to use the selected variables  
+clean_training <- training[,predictors[-c(1:7)]] # Not including the first 7 variables, which are not related to the sensor
+clean_testing <- testing[,predictors[-c(1:7,60)]] # Not including the first 7 variables, and the "classe" variable, which is the outcome
+dim(clean_training)
+dim(clean_testing)
+```
+
+We'll keep 52 predictors to estimate the "classe" variable.
+
+### Data slicing
+
+In order to calculate the accuracy of my model, I'll slice the training set provided into two groups: training1 and testing1 (60% and 40% of the data provided). This way, I'll train my model with training1, and then I'll be able to cross-validate it with testing1. Finally, I'll use the testing set provided to send the prediction assignment submission. 
+
+
+```{r slicing, cache=TRUE}
+set.seed(12345)
+indexTraining <- createDataPartition(y=clean_training$classe, p=0.6, list=FALSE)
+training1 <- clean_training[indexTraining,]
+testing1 <- clean_training[-indexTraining,]
+```
+
+### Model training and accuracy
+
+I'll use the randomForest package to build a model. Explicit additional cross-validation is not necessary because the randomForest function does subsampling on its own.
+
+```{r model, cache=TRUE}
+model <- randomForest(classe ~ ., data = training1, ntrees = 200)
+```
+
+I'll now test my model with the testing1 data set I sliced previously. This way, I'll be able to build the confusion matrix and estimate the accuracy of the model.
+
+```{r accuracy, cache=TRUE}
+confusionMatrix(predict(model, newdata=testing1), reference=testing1$classe)
+```
+
+As we can see, the out-of-sample error of the model is really high (over 99%!)
+
+### Testing
+
+I've used the model created with the testing set to predict the classe for the 20 observations provided and have submitted them.
+
+```{r test}
+#answers <- predict(model, newdata=clean_testing)
+#answers
+```
+
+answers
+
+ 1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 
+ 
+ B  A  B  A  A  E  D  B  A  A  B  C  B  A  E  E  A  B  B  B 
+ 
+Levels: A B C D E
+
+I'll use the function provided in the Coursera instructions to submit the answers:
+
+```{r, results='hide'}
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+
+#pml_write_files(answers)
+```
+
